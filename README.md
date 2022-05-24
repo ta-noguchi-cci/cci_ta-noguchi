@@ -72,7 +72,7 @@ CARTAへの経営統合により、従来のIDshareのデータから全社的�
 ・Tableau反映(ユーザー管理機能)
 ```
 
-![tableau_account_manager_flow](https://github.com/ta-noguchi-cci/test-noguchi/blob/main/images/tableau_account_manager_flow.png)
+![tableau_account_manager_flow](https://github.com/ta-noguchi-cci/cci_ta-noguchi/blob/main/images/tableau_account_manager_flow.png)
 
 ### IDShareデータについて
 
