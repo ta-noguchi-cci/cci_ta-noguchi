@@ -17,22 +17,29 @@ Tableauのアカウントは手動による運用と本バッチ処理による�
 
 自動運用の際に本バッチ処理で社内の人事情報を元にアカウントが登録(削除・権限変更等)される
 
-CARTAへの経営統合により、従来のIDshareのデータから全社的にKintoneの人事情報（COREデータ）利用に切り替える方針となった
+CARTAへの経営統合により、従来のIDShareのデータから全社的にKintoneの人事情報（COREデータ）利用に切り替える方針となった
 
-そのため、本バッチ処理で利用している人事情報取得をIDshareデータからCOREデータに切り替える必要があった
+※IDShareとCOREデータについては後述に記載
 
-また、昨年(2022年)の12月から本アプリは停止していたので、アカウント登録が必要な際に手動対応となっていた
+そのため、本バッチ処理で利用している人事情報取得をIDShareデータからCOREデータに切り替える必要があった
+
+また、IDShareにはCARTA統合後の人事情報がないため昨年(2022年)の12月から本バッチ処理による自動運用は停止していた
+
+アカウント登録が必要な際に手動対応となっていた
 
 ## システム概要(lake.biにおいてTableau周り関連するところ)
 ### ■lake.bi
 * 弊社における、広告の運用実績が蓄積されたデータ基盤プロダクト
 
 ### ■基盤EVM(onlineレポート)
-* 運用実績が蓄積されたデータはTableauのデータソースで抽出され、Excel形式のレポートに利用されている
+* 運用実績の蓄積されたデータがTableauのデータソースで抽出され、Excel形式のレポートに利用されている
 * Web画面ではTableauダッシュボードが埋め込まれていて、入力条件に沿ったレポートを提供する
 
 ### TableauServerについて(サイト・ユーザー・ロール)
 #### サイト
+  
+  - Tableauにおけるサイトとは、ユーザー、グループ、およびコンテンツ(ワークブック、データソース)の集まりのこと
+
 　lake.biでアカウント管理しているサイト種類
 
 | サイト | 用途 |
@@ -44,10 +51,11 @@ CARTAへの経営統合により、従来のIDshareのデータから全社的�
 
   
 #### ユーザー
+- lake.biでは上記のサイト毎にユーザーが登録されている
 - ユーザー：ESQ_ID
 - サイトロール：サイトに対するロール
 
-※ロールは本バッチ処理においては以下のサーバー管理者以外をサイト毎に付与
+※ロールは本バッチ処理においては以下のサーバー管理者以外をサイト毎にユーザーに付与
   
 #### ロール
 | 権限名 | 説明 | 権限範囲 |  
@@ -65,14 +73,18 @@ CARTAへの経営統合により、従来のIDshareのデータから全社的�
 * 処理フロー
 ```
 ・人事情報取得・PostgreDB登録
-　　以下はサイト毎
 ・スプレッドシートデータ取得・PostgreDB登録
+　　以下はサイト毎
 ・Tableau情報取得・PostgreDB登録
 ・ユーザー管理情報生成
 ・Tableau反映(ユーザー管理機能)
 ```
 
-![tableau_account_manager_flow](https://github.com/ta-noguchi-cci/cci_ta-noguchi/blob/main/images/tableau_account_manager_flow.png)
+![tableau_account_manager_flow](https://github.com/ta-noguchi-cci/test-noguchi/blob/main/images/tableau_account_manager_flow.png)
+
+## 問題提起
+
+- IDShareデータはCARTA統合後の人事情報がない
 
 ### IDShareデータについて
 
@@ -82,6 +94,17 @@ Tableauアカウント登録バッチでは人事情報としてIDShareデータ
 
 簡単にIDShareデータの取得の流れを記しておく
 #### COMPANY　→　S3(cci-id-share)にCPID_xx.csv　→　ID連携サーバ(ID_SHARE)でAccountList.csv作成・S3配置　→　S3(cci-id-share)
+
+### lake.biで管理されてるアカウントの数
+
+- agency：約750アカウント
+- bxreport_for_agency：約90アカウント
+- cci_all：約180アカウント
+- media：約35アカウント
+
+上記以外で新規登録アカウントが増える状況
+
+アカウント数も増えてくるのでCOREデータに切り替えての自動登録が必要
 
 ## 解決手法
 
@@ -101,8 +124,8 @@ cimテーブルにこれまでのIDShareデータと同等の内容のデータ�
 | 名前 | name | text |  |
 | 名前カナ | name_kana | text |  |
 | 名前english | name_english | text |  |
-| mail住所 | mail_address | text |  |
-| hire日付 | hire_date | date |  |
+| mailアドレス | mail_address | text |  |
+| 入社日 | hire_date | date |  |
 
 ### core_dbについて
 
@@ -149,6 +172,7 @@ https://ap-northeast-1.console.aws.amazon.com/codesuite/codecommit/repositories/
 
 #### CoreData 専用テーブルDB上⇒Troccoジョブで経由⇒S3:stg-lakebi-core-data/へcore_data_lakebi.csv
 #### core_data_lakebi.csvに出力する流れまではアーキテクチャインテグレーションチームの方にお願いする形となった
+#### 本バッチ処理で必要なカラムをアーキテクチャインテグレーションチームの方にお伝えし、core_data_lakebi.csvに出力する内容を調整した
 #### core_data_lakebi.csv取得し、PostgreDBのcimテーブルに登録
 #### coreテーブルは使用なしとなるため削除
 
@@ -241,11 +265,15 @@ out:
 
 ```
 
+* CodeCommitのmaster保存
+
+https://ap-northeast-1.console.aws.amazon.com/codesuite/codecommit/repositories/TableauAccountManager/browse?region=ap-northeast-1
+
+
 ## 今後の展望
 
 ### 実装面
 
-- 削除不要なアカウントが削除されてしまうことがあるため調査が必要
 - 評価と本番にアカウントやアカウントの状態に差異があり、本番を想定したテストがやりにくい状況になっているので、評価と本番の差異の把握
 - 差異を把握した上で本番環境に近い環境(データ)の構築・設定
 - スプレッドシートはCCIテナントのGドライブから取得しているのでCARTAテナントへの切り替え
@@ -258,6 +286,11 @@ out:
 ## 参考
 
 参考資料
+
+- Tableau サイトについて
+
+https://help.tableau.com/current/server/ja-jp/sites.htm
+
 - Tableauアカウントバッチ処理概要.xlsx
 
 https://docs.google.com/spreadsheets/d/16J51KfOlaTyBXsVnjIT0XCYK77M4so32/edit?usp=sharing&ouid=109432511723231409224&rtpof=true&sd=true
